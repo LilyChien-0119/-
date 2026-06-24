@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>重訓紀錄</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1B1D19;
+    --surface:#23261F;
+    --surface2:#2C3026;
+    --line:#3A3E33;
+    --accent:#4F8367;
+    --accent-dim:#385C46;
+    --chalk:#E9E4D6;
+    --text:#EDEAE0;
+    --muted:#8B9082;
+    --brass:#C9A24A;
+    --danger:#B5594A;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding-bottom:96px;
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:"";
+    position:fixed; right:-60px; top:40px;
+    width:320px; height:320px;
+    background: radial-gradient(circle at 30% 30%, rgba(79,131,103,0.10), transparent 70%);
+    pointer-events:none; z-index:0;
+  }
+  header{
+    padding:22px 18px 14px;
+    position:relative; z-index:1;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:.12em; color:var(--muted);
+    text-transform:uppercase;
+  }
+  h1{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:28px;
+    letter-spacing:.01em;
+    margin:2px 0 0;
+    text-transform:uppercase;
+  }
+  .tabs{
+    display:flex; gap:6px;
+    margin:18px 18px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  .tab{
+    flex:1; text-align:center;
+    padding:10px 0 12px;
+    font-family:'Oswald',sans-serif;
+    font-size:14px; letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+    background:none; border:none;
+    border-bottom:2px solid transparent;
+    cursor:pointer;
+  }
+  .tab.active{ color:var(--chalk); border-bottom-color:var(--brass); }
+
+  main{ padding:14px 14px 0; position:relative; z-index:1; }
+
+  .daybar{
+    display:flex; gap:8px; align-items:center; margin-bottom:14px;
+  }
+  .daybtn{
+    flex:1; padding:13px 0;
+    text-align:center;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--muted);
+    font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.08em;
+    cursor:pointer;
+  }
+  .daybtn.active{
+    background:var(--accent-dim);
+    border-color:var(--accent);
+    color:var(--chalk);
+  }
+  input[type=date]{
+    background:var(--surface);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:10px;
+    padding:11px 8px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    width:128px;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 14px 12px;
+    margin-bottom:12px;
+  }
+  .card-head{
+    display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+  }
+  .ex-name{ font-weight:700; font-size:15.5px; color:var(--chalk); }
+  .target{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px; color:var(--bg);
+    background:var(--chalk);
+    border-radius:6px; padding:2px 7px;
+    white-space:nowrap;
+  }
+  .ref{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px; color:var(--muted);
+    margin:5px 0 12px;
+  }
+  .setrow{
+    display:flex; align-items:center; gap:8px; margin-bottom:8px;
+  }
+  .setlabel{
+    width:38px; font-family:'IBM Plex Mono',monospace;
+    font-size:12px; color:var(--muted);
+  }
+  .setrow input{
+    flex:1; min-width:0;
+    background:var(--surface2);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:9px;
+    padding:11px 8px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:15px;
+    text-align:center;
+  }
+  .setrow input::placeholder{ color:#5A5F50; }
+  .x{ color:var(--muted); font-size:13px; }
+  .note-input{
+    width:100%;
+    background:transparent;
+    border:none; border-top:1px dashed var(--line);
+    color:var(--muted);
+    padding:9px 0 0;
+    font-size:13px;
+    font-family:'Inter',sans-serif;
+  }
+  .note-input::placeholder{ color:#5A5F50; }
+  .note-input:focus{ outline:none; color:var(--text); }
+
+  .savebar{
+    position:fixed; left:0; right:0; bottom:0;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, var(--bg) 60%, transparent);
+    z-index:5;
+  }
+  .savebtn{
+    width:100%; padding:15px 0;
+    border:none; border-radius:12px;
+    background:var(--brass); color:#241D0C;
+    font-family:'Oswald',sans-serif; font-size:16px; letter-spacing:.05em;
+    text-transform:uppercase;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .toast{
+    position:fixed; bottom:88px; left:50%;
+    transform:translateX(-50%) translateY(10px);
+    background:var(--accent); color:#fff;
+    padding:9px 18px; border-radius:20px;
+    font-size:13px; font-weight:600;
+    opacity:0; transition:opacity .25s, transform .25s;
+    z-index:6; pointer-events:none;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* history */
+  .hist-empty{
+    margin:60px 18px; text-align:center; color:var(--muted);
+    font-size:14px; line-height:1.7;
+  }
+  .hcard{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:14px; margin-bottom:10px; overflow:hidden;
+  }
+  .hhead{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:13px 14px; cursor:pointer;
+  }
+  .hdate{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--chalk); }
+  .hbadge{
+    font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.1em;
+    background:var(--accent-dim); color:var(--chalk);
+    border-radius:6px; padding:3px 8px; margin-left:8px;
+  }
+  .hchevron{ color:var(--muted); transition:transform .2s; font-size:12px; }
+  .hbody{ display:none; padding:0 14px 14px; }
+  .hbody.open{ display:block; }
+  .hex{ margin-bottom:10px; }
+  .hex-name{ font-size:13.5px; font-weight:600; color:var(--chalk); margin-bottom:2px;}
+  .hex-sets{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--muted); }
+  .hex-note{ font-size:12px; color:var(--muted); margin-top:2px; font-style:italic; }
+  .hdel{
+    margin-top:6px;
+    background:none; border:1px solid var(--line); color:var(--muted);
+    border-radius:8px; padding:7px 12px; font-size:12px; cursor:pointer;
+  }
+  .hdel.confirm{ background:var(--danger); border-color:var(--danger); color:#fff; }
+
+  /* settings */
+  .settings-hint{
+    margin:0 4px 16px; font-size:12.5px; line-height:1.7; color:var(--muted);
+  }
+  .settings-day{ margin-bottom:22px; }
+  .settings-daytitle{
+    font-family:'Oswald',sans-serif; font-size:13px; letter-spacing:.1em;
+    color:var(--brass); margin-bottom:8px;
+  }
+  .setting-ex{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:12px; margin-bottom:8px;
+  }
+  .setting-row1{ display:flex; gap:8px; margin-bottom:8px; }
+  .setting-row2{ display:flex; gap:8px; align-items:center; }
+  .setting-ex input[type=text]{
+    flex:1; min-width:0;
+    background:var(--surface2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:9px 10px; font-size:14px; font-family:'Inter',sans-serif;
+  }
+  .setting-ex input.tgt{ max-width:96px; font-family:'IBM Plex Mono',monospace; font-size:13px; }
+  .setting-ex select{
+    background:var(--surface2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:9px 8px; font-size:13px; font-family:'Inter',sans-serif;
+  }
+  .set-del{
+    background:none; border:1px solid var(--line); color:var(--danger);
+    border-radius:8px; padding:8px 11px; font-size:12px; cursor:pointer; white-space:nowrap;
+  }
+  .addex{
+    width:100%; padding:11px 0; margin-top:4px;
+    background:none; border:1px dashed var(--line); color:var(--muted);
+    border-radius:10px; font-size:13px; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">FULL BODY · A / B</div>
+  <h1>重訓紀錄</h1>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="log">記錄</button>
+  <button class="tab" data-tab="history">歷史</button>
+  <button class="tab" data-tab="settings">項目設定</button>
+</div>
+
+<main id="logView">
+  <div class="daybar">
+    <button class="daybtn" data-day="A">DAY A</button>
+    <button class="daybtn" data-day="B">DAY B</button>
+    <input type="date" id="dateInput">
+  </div>
+  <div id="exList"></div>
+</main>
+
+<main id="histView" style="display:none;">
+  <div id="histList"></div>
+</main>
+
+<main id="settingsView" style="display:none;">
+  <div class="settings-hint">編輯每天的動作名稱、目標次數與類型。改完按下方「儲存項目設定」才會生效；之後的記錄會用新項目，過去的歷史紀錄不受影響。</div>
+  <div class="settings-day">
+    <div class="settings-daytitle">DAY A</div>
+    <div id="setA"></div>
+    <button class="addex" data-day="A">＋ 新增動作</button>
+  </div>
+  <div class="settings-day">
+    <div class="settings-daytitle">DAY B</div>
+    <div id="setB"></div>
+    <button class="addex" data-day="B">＋ 新增動作</button>
+  </div>
+</main>
+
+<div class="savebar" id="saveBar">
+  <button class="savebtn" id="saveBtn">儲存今日紀錄</button>
+</div>
+<div class="toast" id="toast">已儲存</div>
+
+<script>
+let PROGRAM = {
+  A: [
+    {key:'squat', name:'深蹲', target:'8–10', type:'weight'},
+    {key:'bench', name:'啞鈴/槓鈴臥推', target:'8–12', type:'weight'},
+    {key:'pulldown', name:'滑輪下拉', target:'10–12', type:'weight'},
+    {key:'hipthrust', name:'臀橋 / 髖推', target:'10–12', type:'weight'},
+    {key:'core_a', name:'棒式 / 死蟲（核心）', target:'30–45秒', type:'time'},
+  ],
+  B: [
+    {key:'rdl', name:'羅馬尼亞硬舉 RDL', target:'8–10', type:'weight'},
+    {key:'shoulderpress', name:'肩推（啞鈴/機械）', target:'8–12', type:'weight'},
+    {key:'row', name:'坐姿划船', target:'10–12', type:'weight'},
+    {key:'lunge', name:'保加利亞分腿蹲（每邊）', target:'8–10', type:'weight'},
+    {key:'core_b', name:'抗旋轉核心', target:'8–10', type:'weight'},
+  ]
+};
+const SET_COUNT = 3;
+
+async function loadProgram(){
+  try{
+    const v = localStorage.getItem('workout-program');
+    if(v) PROGRAM = JSON.parse(v);
+  }catch(e){ /* keep default PROGRAM */ }
+}
+async function saveProgram(){
+  try{
+    localStorage.setItem('workout-program', JSON.stringify(PROGRAM));
+  }catch(e){ console.error('program save failed', e); }
+}
+function genKey(){ return 'ex_' + Date.now() + '_' + Math.floor(Math.random()*1000); }
+
+let log = [];
+let currentDay = 'A';
+let currentTab = 'log';
+
+function todayISO(){
+  const d = new Date();
+  const tz = d.getTimezoneOffset()*60000;
+  return new Date(d-tz).toISOString().slice(0,10);
+}
+function fmtDate(iso){
+  const [y,m,d] = iso.split('-');
+  return `${y}/${m}/${d}`;
+}
+
+async function loadLog(){
+  try{
+    const v = localStorage.getItem('workout-log');
+    log = v ? JSON.parse(v) : [];
+  }catch(e){ log = []; }
+}
+async function saveLog(){
+  try{
+    localStorage.setItem('workout-log', JSON.stringify(log));
+  }catch(e){ console.error('storage save failed', e); }
+}
+
+function entryId(date, day){ return `${date}_${day}`; }
+function findEntry(date, day){
+  return log.find(e => e.date===date && e.day===day);
+}
+function latestForExercise(key, beforeId){
+  const sorted = [...log].sort((a,b)=> (a.id<b.id?1:-1));
+  for(const e of sorted){
+    if(e.id===beforeId) continue;
+    const ex = e.exercises.find(x=>x.key===key);
+    if(ex && ex.sets.some(s=> (s.weight||s.reps||s.duration))){
+      return {entry:e, ex};
+    }
+  }
+  return null;
+}
+function formatSets(ex){
+  const type = ex.type || (PROGRAM.A.find(x=>x.key===ex.key) || PROGRAM.B.find(x=>x.key===ex.key) || {}).type || 'weight';
+  return ex.sets
+    .filter(s => type==='time' ? s.duration : (s.weight || s.reps))
+    .map(s => type==='time' ? `${s.duration}秒` : `${s.weight||0}kg×${s.reps||0}`)
+    .join(' · ') || '—';
+}
+
+function renderTabs(){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab===currentTab);
+  });
+  document.getElementById('logView').style.display = currentTab==='log' ? '' : 'none';
+  document.getElementById('histView').style.display = currentTab==='history' ? '' : 'none';
+  document.getElementById('settingsView').style.display = currentTab==='settings' ? '' : 'none';
+  const bar = document.getElementById('saveBar');
+  const btn = document.getElementById('saveBtn');
+  if(currentTab==='log'){
+    bar.style.display = '';
+    btn.textContent = '儲存今日紀錄';
+  } else if(currentTab==='settings'){
+    bar.style.display = '';
+    btn.textContent = '儲存項目設定';
+  } else {
+    bar.style.display = 'none';
+  }
+  if(currentTab==='history') renderHistory();
+  if(currentTab==='settings') renderSettings();
+}
+
+function renderDayBar(){
+  document.querySelectorAll('.daybtn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.day===currentDay);
+  });
+}
+
+function renderExercises(){
+  const date = document.getElementById('dateInput').value;
+  const id = entryId(date, currentDay);
+  const existing = findEntry(date, currentDay);
+  const list = document.getElementById('exList');
+  list.innerHTML = '';
+
+  PROGRAM[currentDay].forEach(ex=>{
+    const savedEx = existing ? existing.exercises.find(x=>x.key===ex.key) : null;
+    const ref = latestForExercise(ex.key, id);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.key = ex.key;
+
+    const refText = ref
+      ? `上次（${fmtDate(ref.entry.date)}）：${formatSets(ref.ex)}`
+      : '尚無上次紀錄';
+
+    let setsHtml = '';
+    for(let i=0;i<SET_COUNT;i++){
+      const sv = savedEx && savedEx.sets[i] ? savedEx.sets[i] : {};
+      if(ex.type==='time'){
+        setsHtml += `
+          <div class="setrow">
+            <div class="setlabel">第${i+1}組</div>
+            <input type="number" inputmode="numeric" placeholder="秒" data-field="duration" data-set="${i}" value="${sv.duration||''}">
+          </div>`;
+      } else {
+        setsHtml += `
+          <div class="setrow">
+            <div class="setlabel">第${i+1}組</div>
+            <input type="number" inputmode="decimal" placeholder="kg" data-field="weight" data-set="${i}" value="${sv.weight||''}">
+            <span class="x">×</span>
+            <input type="number" inputmode="numeric" placeholder="次" data-field="reps" data-set="${i}" value="${sv.reps||''}">
+          </div>`;
+      }
+    }
+
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="ex-name">${ex.name}</div>
+        <div class="target">${ex.target}</div>
+      </div>
+      <div class="ref">${refText}</div>
+      ${setsHtml}
+      <input type="text" class="note-input" placeholder="備註 / 感受" value="${savedEx && savedEx.note ? savedEx.note.replace(/"/g,'&quot;') : ''}">
+    `;
+    list.appendChild(card);
+  });
+}
+
+function collectDraft(){
+  const date = document.getElementById('dateInput').value;
+  const exercises = [];
+  document.querySelectorAll('#exList .card').forEach(card=>{
+    const key = card.dataset.key;
+    const sets = [];
+    for(let i=0;i<SET_COUNT;i++){
+      const w = card.querySelector(`input[data-field="weight"][data-set="${i}"]`);
+      const r = card.querySelector(`input[data-field="reps"][data-set="${i}"]`);
+      const d = card.querySelector(`input[data-field="duration"][data-set="${i}"]`);
+      sets.push({
+        weight: w ? (w.value?Number(w.value):null) : null,
+        reps: r ? (r.value?Number(r.value):null) : null,
+        duration: d ? (d.value?Number(d.value):null) : null,
+      });
+    }
+    const note = card.querySelector('.note-input').value.trim();
+    const def = PROGRAM[currentDay].find(x=>x.key===key) || {};
+    exercises.push({key, name:def.name, target:def.target, type:def.type, sets, note});
+  });
+  return {date, exercises};
+}
+
+async function handleSave(){
+  const {date, exercises} = collectDraft();
+  const id = entryId(date, currentDay);
+  const idx = log.findIndex(e=>e.id===id);
+  const entry = {id, date, day:currentDay, exercises};
+  if(idx>-1) log[idx] = entry; else log.push(entry);
+  await saveLog();
+  showToast();
+  renderExercises();
+}
+
+function showToast(){
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1500);
+}
+
+function renderHistory(){
+  const list = document.getElementById('histList');
+  const sorted = [...log].sort((a,b)=> a.date<b.date ? 1 : (a.date>b.date?-1: (a.day<b.day?1:-1)) );
+  if(sorted.length===0){
+    list.innerHTML = `<div class="hist-empty">尚無歷史紀錄<br>完成第一次訓練並儲存後，會出現在這裡。</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  sorted.forEach(entry=>{
+    const card = document.createElement('div');
+    card.className = 'hcard';
+    const exHtml = entry.exercises.map(ex=>{
+      const def = PROGRAM[entry.day].find(x=>x.key===ex.key);
+      const name = ex.name || (def ? def.name : ex.key);
+      const setsStr = formatSets(ex);
+      if(setsStr==='—' && !ex.note) return '';
+      return `
+        <div class="hex">
+          <div class="hex-name">${name}</div>
+          <div class="hex-sets">${setsStr}</div>
+          ${ex.note ? `<div class="hex-note">${ex.note}</div>` : ''}
+        </div>`;
+    }).join('');
+    card.innerHTML = `
+      <div class="hhead">
+        <div><span class="hdate">${fmtDate(entry.date)}</span><span class="hbadge">DAY ${entry.day}</span></div>
+        <span class="hchevron">▾</span>
+      </div>
+      <div class="hbody">
+        ${exHtml || '<div class="hex-sets">尚未填寫任何數值</div>'}
+        <button class="hdel">刪除這筆紀錄</button>
+      </div>
+    `;
+    const head = card.querySelector('.hhead');
+    const body = card.querySelector('.hbody');
+    const chev = card.querySelector('.hchevron');
+    head.addEventListener('click', ()=>{
+      const open = body.classList.toggle('open');
+      chev.style.transform = open ? 'rotate(180deg)' : 'rotate(0)';
+    });
+    const delBtn = card.querySelector('.hdel');
+    let confirming = false;
+    delBtn.addEventListener('click', async (ev)=>{
+      ev.stopPropagation();
+      if(!confirming){
+        confirming = true;
+        delBtn.textContent = '再次點擊以確認刪除';
+        delBtn.classList.add('confirm');
+        setTimeout(()=>{
+          if(confirming){
+            confirming = false;
+            delBtn.textContent = '刪除這筆紀錄';
+            delBtn.classList.remove('confirm');
+          }
+        }, 3000);
+        return;
+      }
+      log = log.filter(e=>e.id!==entry.id);
+      await saveLog();
+      renderHistory();
+    });
+    list.appendChild(card);
+  });
+}
+
+function buildSettingRow(day, ex){
+  const row = document.createElement('div');
+  row.className = 'setting-ex';
+  row.dataset.key = ex.key;
+  row.innerHTML = `
+    <div class="setting-row1">
+      <input type="text" class="ex-name-input" placeholder="動作名稱" value="${(ex.name||'').replace(/"/g,'&quot;')}">
+      <button class="set-del">移除</button>
+    </div>
+    <div class="setting-row2">
+      <input type="text" class="tgt" placeholder="目標 如 8–10" value="${(ex.target||'').replace(/"/g,'&quot;')}">
+      <select class="ex-type-input">
+        <option value="weight" ${ex.type!=='time'?'selected':''}>重量 × 次數</option>
+        <option value="time" ${ex.type==='time'?'selected':''}>計時（秒）</option>
+      </select>
+    </div>
+  `;
+  row.querySelector('.set-del').addEventListener('click', ()=> row.remove());
+  return row;
+}
+
+function renderSettings(){
+  ['A','B'].forEach(day=>{
+    const container = document.getElementById('set'+day);
+    container.innerHTML = '';
+    PROGRAM[day].forEach(ex => container.appendChild(buildSettingRow(day, ex)));
+  });
+}
+
+function collectProgramFromSettings(){
+  const next = {A:[], B:[]};
+  ['A','B'].forEach(day=>{
+    document.getElementById('set'+day).querySelectorAll('.setting-ex').forEach(row=>{
+      const name = row.querySelector('.ex-name-input').value.trim();
+      if(!name) return;
+      next[day].push({
+        key: row.dataset.key,
+        name,
+        target: row.querySelector('.tgt').value.trim(),
+        type: row.querySelector('.ex-type-input').value,
+      });
+    });
+  });
+  return next;
+}
+
+async function handleSaveProgram(){
+  PROGRAM = collectProgramFromSettings();
+  await saveProgram();
+  renderSettings();
+  showToast();
+  if(!PROGRAM[currentDay].length) currentDay = (PROGRAM.A.length ? 'A':'B');
+  renderDayBar();
+  renderExercises();
+}
+
+function suggestNextDay(){
+  if(log.length===0) return 'A';
+  const sorted = [...log].sort((a,b)=> a.id<b.id?1:-1);
+  return sorted[0].day==='A' ? 'B' : 'A';
+}
+
+async function init(){
+  await loadProgram();
+  await loadLog();
+  document.getElementById('dateInput').value = todayISO();
+  currentDay = suggestNextDay();
+  renderDayBar();
+  renderExercises();
+
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=>{ currentTab = t.dataset.tab; renderTabs(); });
+  });
+  document.querySelectorAll('.daybtn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      currentDay = b.dataset.day;
+      renderDayBar();
+      renderExercises();
+    });
+  });
+  document.querySelectorAll('.addex').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const day = b.dataset.day;
+      const container = document.getElementById('set'+day);
+      container.appendChild(buildSettingRow(day, {key:genKey(), name:'', target:'', type:'weight'}));
+    });
+  });
+  document.getElementById('dateInput').addEventListener('change', renderExercises);
+  document.getElementById('saveBtn').addEventListener('click', ()=>{
+    if(currentTab==='settings') handleSaveProgram();
+    else handleSave();
+  });
+}
+init();
+</script>
+</body>
+</html>
