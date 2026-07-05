@@ -157,6 +157,19 @@
   }
   .note-input::placeholder{ color:#5A5F50; }
   .note-input:focus{ outline:none; color:var(--text); }
+  .setctrl{
+    display:flex; justify-content:flex-end; gap:6px; margin-top:2px; margin-bottom:4px;
+  }
+  .setbtn{
+    background:none; border:1px solid var(--line); color:var(--muted);
+    border-radius:8px; padding:6px 14px; font-size:13px; cursor:pointer;
+  }
+  .setbtn.add{ color:var(--accent); border-color:var(--accent); }
+  .unit-sel{
+    background:var(--surface2); border:1px solid var(--line); color:var(--muted);
+    border-radius:9px; padding:10px 6px; font-size:13px; font-family:'Inter',sans-serif;
+    max-width:66px;
+  }
 
   .savebar{
     position:fixed; left:0; right:0; bottom:0;
@@ -315,7 +328,7 @@ let PROGRAM = {
     {key:'core_b', name:'抗旋轉核心', target:'8–10', type:'weight'},
   ]
 };
-const SET_COUNT = 3;
+// set count is now dynamic per exercise card
 
 async function loadProgram(){
   try{
@@ -375,7 +388,10 @@ function formatSets(ex){
   const type = ex.type || (PROGRAM.A.find(x=>x.key===ex.key) || PROGRAM.B.find(x=>x.key===ex.key) || {}).type || 'weight';
   return ex.sets
     .filter(s => type==='time' ? s.duration : (s.weight || s.reps))
-    .map(s => type==='time' ? `${s.duration}秒` : `${s.weight||0}kg×${s.reps||0}`)
+    .map(s => {
+      if(type==='time') return `${s.duration}${s.unit||'秒'}`;
+      return `${s.weight||0}kg×${s.reps||0}`;
+    })
     .join(' · ') || '—';
 }
 
@@ -407,6 +423,34 @@ function renderDayBar(){
   });
 }
 
+function makeSetRow(i, sv, type){
+  const div = document.createElement('div');
+  div.className = 'setrow';
+  if(type==='time'){
+    const unit = sv.unit || '秒';
+    div.innerHTML = `
+      <div class="setlabel">第${i+1}組</div>
+      <input type="number" inputmode="numeric" placeholder="時間" data-field="duration" value="${sv.duration||''}">
+      <select class="unit-sel" data-field="unit">
+        <option value="秒" ${unit==='秒'?'selected':''}>秒</option>
+        <option value="分鐘" ${unit==='分鐘'?'selected':''}>分鐘</option>
+      </select>`;
+  } else {
+    div.innerHTML = `
+      <div class="setlabel">第${i+1}組</div>
+      <input type="number" inputmode="decimal" placeholder="kg" data-field="weight" value="${sv.weight||''}">
+      <span class="x">×</span>
+      <input type="number" inputmode="numeric" placeholder="次" data-field="reps" value="${sv.reps||''}">`;
+  }
+  return div;
+}
+
+function refreshSetLabels(container){
+  container.querySelectorAll('.setrow').forEach((row,i)=>{
+    row.querySelector('.setlabel').textContent = `第${i+1}組`;
+  });
+}
+
 function renderExercises(){
   const date = document.getElementById('dateInput').value;
   const id = entryId(date, currentDay);
@@ -417,44 +461,55 @@ function renderExercises(){
   PROGRAM[currentDay].forEach(ex=>{
     const savedEx = existing ? existing.exercises.find(x=>x.key===ex.key) : null;
     const ref = latestForExercise(ex.key, id);
-
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.dataset.key = ex.key;
-
     const refText = ref
       ? `上次（${fmtDate(ref.entry.date)}）：${formatSets(ref.ex)}`
       : '尚無上次紀錄';
 
-    let setsHtml = '';
-    for(let i=0;i<SET_COUNT;i++){
-      const sv = savedEx && savedEx.sets[i] ? savedEx.sets[i] : {};
-      if(ex.type==='time'){
-        setsHtml += `
-          <div class="setrow">
-            <div class="setlabel">第${i+1}組</div>
-            <input type="number" inputmode="numeric" placeholder="秒" data-field="duration" data-set="${i}" value="${sv.duration||''}">
-          </div>`;
-      } else {
-        setsHtml += `
-          <div class="setrow">
-            <div class="setlabel">第${i+1}組</div>
-            <input type="number" inputmode="decimal" placeholder="kg" data-field="weight" data-set="${i}" value="${sv.weight||''}">
-            <span class="x">×</span>
-            <input type="number" inputmode="numeric" placeholder="次" data-field="reps" data-set="${i}" value="${sv.reps||''}">
-          </div>`;
-      }
-    }
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.key = ex.key;
+    card.dataset.type = ex.type;
 
-    card.innerHTML = `
-      <div class="card-head">
-        <div class="ex-name">${ex.name}</div>
-        <div class="target">${ex.target}</div>
-      </div>
-      <div class="ref">${refText}</div>
-      ${setsHtml}
-      <input type="text" class="note-input" placeholder="備註 / 感受" value="${savedEx && savedEx.note ? savedEx.note.replace(/"/g,'&quot;') : ''}">
-    `;
+    const head = document.createElement('div');
+    head.className = 'card-head';
+    head.innerHTML = `<div class="ex-name">${ex.name}</div><div class="target">${ex.target}</div>`;
+    card.appendChild(head);
+
+    const refDiv = document.createElement('div');
+    refDiv.className = 'ref';
+    refDiv.textContent = refText;
+    card.appendChild(refDiv);
+
+    const sc = document.createElement('div');
+    sc.className = 'sets-container';
+    const initSets = (savedEx && savedEx.sets && savedEx.sets.length>0) ? savedEx.sets : [{},{},{}];
+    initSets.forEach((sv,i) => sc.appendChild(makeSetRow(i, sv, ex.type)));
+    card.appendChild(sc);
+
+    const ctrl = document.createElement('div');
+    ctrl.className = 'setctrl';
+    const minusBtn = document.createElement('button');
+    minusBtn.className = 'setbtn'; minusBtn.textContent = '－組';
+    const plusBtn = document.createElement('button');
+    plusBtn.className = 'setbtn add'; plusBtn.textContent = '＋組';
+    plusBtn.addEventListener('click', ()=>{
+      const rows = sc.querySelectorAll('.setrow');
+      sc.appendChild(makeSetRow(rows.length, {}, ex.type));
+      refreshSetLabels(sc);
+    });
+    minusBtn.addEventListener('click', ()=>{
+      const rows = sc.querySelectorAll('.setrow');
+      if(rows.length>1){ rows[rows.length-1].remove(); refreshSetLabels(sc); }
+    });
+    ctrl.appendChild(minusBtn); ctrl.appendChild(plusBtn);
+    card.appendChild(ctrl);
+
+    const note = document.createElement('input');
+    note.type = 'text'; note.className = 'note-input';
+    note.placeholder = '備註 / 感受';
+    note.value = savedEx && savedEx.note ? savedEx.note : '';
+    card.appendChild(note);
+
     list.appendChild(card);
   });
 }
@@ -464,20 +519,23 @@ function collectDraft(){
   const exercises = [];
   document.querySelectorAll('#exList .card').forEach(card=>{
     const key = card.dataset.key;
+    const type = card.dataset.type;
     const sets = [];
-    for(let i=0;i<SET_COUNT;i++){
-      const w = card.querySelector(`input[data-field="weight"][data-set="${i}"]`);
-      const r = card.querySelector(`input[data-field="reps"][data-set="${i}"]`);
-      const d = card.querySelector(`input[data-field="duration"][data-set="${i}"]`);
+    card.querySelectorAll('.sets-container .setrow').forEach(row=>{
+      const w = row.querySelector('input[data-field="weight"]');
+      const r = row.querySelector('input[data-field="reps"]');
+      const d = row.querySelector('input[data-field="duration"]');
+      const u = row.querySelector('select[data-field="unit"]');
       sets.push({
         weight: w ? (w.value?Number(w.value):null) : null,
-        reps: r ? (r.value?Number(r.value):null) : null,
+        reps:   r ? (r.value?Number(r.value):null) : null,
         duration: d ? (d.value?Number(d.value):null) : null,
+        unit: u ? u.value : null,
       });
-    }
+    });
     const note = card.querySelector('.note-input').value.trim();
     const def = PROGRAM[currentDay].find(x=>x.key===key) || {};
-    exercises.push({key, name:def.name, target:def.target, type:def.type, sets, note});
+    exercises.push({key, name:def.name||key, target:def.target, type:def.type||type, sets, note});
   });
   return {date, exercises};
 }
