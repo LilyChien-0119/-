@@ -264,6 +264,15 @@
     background:none; border:1px dashed var(--line); color:var(--muted);
     border-radius:10px; font-size:13px; cursor:pointer;
   }
+  .drag-handle{
+    color:var(--muted); font-size:18px; padding:0 10px 0 2px;
+    cursor:grab; touch-action:none; user-select:none; flex-shrink:0;
+    display:flex; align-items:center;
+  }
+  .drag-placeholder{
+    background:var(--surface2); border:2px dashed var(--accent);
+    border-radius:12px; margin-bottom:8px; opacity:0.5;
+  }
 </style>
 </head>
 <body>
@@ -628,6 +637,7 @@ function buildSettingRow(day, ex){
   row.dataset.key = ex.key;
   row.innerHTML = `
     <div class="setting-row1">
+      <div class="drag-handle">⠿</div>
       <input type="text" class="ex-name-input" placeholder="動作名稱" value="${(ex.name||'').replace(/"/g,'&quot;')}">
       <button class="set-del">移除</button>
     </div>
@@ -635,7 +645,7 @@ function buildSettingRow(day, ex){
       <input type="text" class="tgt" placeholder="目標 如 8–10" value="${(ex.target||'').replace(/"/g,'&quot;')}">
       <select class="ex-type-input">
         <option value="weight" ${ex.type!=='time'?'selected':''}>重量 × 次數</option>
-        <option value="time" ${ex.type==='time'?'selected':''}>計時（秒）</option>
+        <option value="time" ${ex.type==='time'?'selected':''}>計時（秒/分）</option>
       </select>
     </div>
   `;
@@ -643,11 +653,70 @@ function buildSettingRow(day, ex){
   return row;
 }
 
+function initDragSort(container){
+  let dragging = null, ghost = null, placeholder = null, offsetY = 0;
+
+  container.addEventListener('touchstart', e => {
+    const handle = e.target.closest('.drag-handle');
+    if(!handle) return;
+    e.preventDefault();
+    const row = handle.closest('.setting-ex');
+    dragging = row;
+    const touch = e.touches[0];
+    const rect = row.getBoundingClientRect();
+    offsetY = touch.clientY - rect.top;
+
+    placeholder = document.createElement('div');
+    placeholder.className = 'drag-placeholder';
+    placeholder.style.height = rect.height + 'px';
+    row.after(placeholder);
+
+    ghost = row.cloneNode(true);
+    Object.assign(ghost.style, {
+      position:'fixed', left:rect.left+'px', top:rect.top+'px',
+      width:rect.width+'px', zIndex:'999', opacity:'0.88',
+      pointerEvents:'none', boxShadow:'0 8px 24px rgba(0,0,0,.5)',
+      transition:'none'
+    });
+    document.body.appendChild(ghost);
+    row.style.visibility = 'hidden';
+  }, {passive:false});
+
+  container.addEventListener('touchmove', e => {
+    if(!dragging || !ghost) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    ghost.style.top = (touch.clientY - offsetY) + 'px';
+
+    const rows = [...container.querySelectorAll('.setting-ex')].filter(r => r !== dragging);
+    let inserted = false;
+    for(const r of rows){
+      const rect = r.getBoundingClientRect();
+      if(touch.clientY < rect.top + rect.height / 2){
+        container.insertBefore(placeholder, r);
+        inserted = true; break;
+      }
+    }
+    if(!inserted) container.appendChild(placeholder);
+  }, {passive:false});
+
+  const endDrag = () => {
+    if(!dragging) return;
+    dragging.style.visibility = '';
+    placeholder.replaceWith(dragging);
+    ghost && ghost.remove();
+    dragging = null; ghost = null; placeholder = null;
+  };
+  container.addEventListener('touchend', endDrag);
+  container.addEventListener('touchcancel', endDrag);
+}
+
 function renderSettings(){
   ['A','B'].forEach(day=>{
     const container = document.getElementById('set'+day);
     container.innerHTML = '';
     PROGRAM[day].forEach(ex => container.appendChild(buildSettingRow(day, ex)));
+    initDragSort(container);
   });
 }
 
@@ -719,4 +788,3 @@ init();
 </script>
 </body>
 </html>
- 
