@@ -522,7 +522,7 @@ function makeSetRow(i, sv, type){
         </div>
         <div class="cardio-field">
           <div class="cardio-label">心率（bpm）</div>
-          <input type="number" inputmode="decimal" data-field="cardio_hr" value="${sv.cardio_hr||''}">
+          <input type="text" inputmode="text" data-field="cardio_hr" value="${sv.cardio_hr||''}" placeholder="135-150">
         </div>
         <div class="cardio-field">
           <div class="cardio-label">坡度 / 阻力</div>
@@ -530,7 +530,7 @@ function makeSetRow(i, sv, type){
         </div>
         <div class="cardio-field">
           <div class="cardio-label">速率 / RPM</div>
-          <input type="number" inputmode="decimal" data-field="cardio_param2" value="${sv.cardio_param2||''}">
+          <input type="text" inputmode="text" data-field="cardio_param2" value="${sv.cardio_param2||''}" placeholder="5.0-6.0">
         </div>
       </div>`;
   } else if(type==='time'){
@@ -642,10 +642,10 @@ function collectDraft(){
         reps:   r ? (r.value?Number(r.value):null) : null,
         duration: d ? (d.value?Number(d.value):null) : null,
         unit: u ? u.value : null,
-        cardio_time:   ct  ? (ct.value?Number(ct.value):null)   : null,
-        cardio_hr:     ch  ? (ch.value?Number(ch.value):null)   : null,
-        cardio_param1: cp1 ? (cp1.value?Number(cp1.value):null) : null,
-        cardio_param2: cp2 ? (cp2.value?Number(cp2.value):null) : null,
+        cardio_time:   ct  ? (ct.value?Number(ct.value):null)      : null,
+        cardio_hr:     ch  ? (ch.value?ch.value.trim():null)         : null,
+        cardio_param1: cp1 ? (cp1.value?Number(cp1.value):null)     : null,
+        cardio_param2: cp2 ? (cp2.value?cp2.value.trim():null)       : null,
       });
     });
     const note = card.querySelector('.note-input').value.trim();
