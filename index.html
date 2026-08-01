@@ -170,6 +170,20 @@
     border-radius:9px; padding:10px 6px; font-size:13px; font-family:'Inter',sans-serif;
     max-width:66px;
   }
+  .cardio-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:6px; width:100%;
+  }
+  .cardio-field{ display:flex; flex-direction:column; gap:3px; }
+  .cardio-label{
+    font-size:10.5px; color:var(--muted); font-family:'IBM Plex Mono',monospace;
+    letter-spacing:.04em;
+  }
+  .cardio-field input{
+    background:var(--surface2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:10px 6px; font-family:'IBM Plex Mono',monospace;
+    font-size:15px; text-align:center; width:100%;
+  }
+  .setrow.cardio-row{ flex-direction:column; align-items:flex-start; gap:6px; }
 
   .savebar{
     position:fixed; left:0; right:0; bottom:0;
@@ -302,6 +316,7 @@
   <div class="daybar">
     <button class="daybtn" data-day="A">DAY A</button>
     <button class="daybtn" data-day="B">DAY B</button>
+    <button class="daybtn" data-day="C">DAY C</button>
     <input type="date" id="dateInput">
   </div>
   <div id="exList"></div>
@@ -325,6 +340,12 @@
   </div>
 
   <div class="settings-day">
+    <div class="settings-daytitle">DAY C　有氧</div>
+    <div id="setC"></div>
+    <button class="addex" data-day="C">＋ 新增動作</button>
+  </div>
+
+  <div class="settings-day">
     <div class="settings-daytitle">備份與還原</div>
     <div class="backup-hint">匯出的 JSON 檔可存到 iCloud 雲端硬碟當備份，換手機或清除快取後可匯入還原。</div>
     <button class="backup-btn" id="exportBtn">⬇ 匯出備份（JSON）</button>
@@ -339,6 +360,17 @@
   <button class="savebtn" id="saveBtn">儲存今日紀錄</button>
 </div>
 <div class="toast" id="toast">已儲存</div>
+
+<div id="backupModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:20; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:24px 20px; max-width:320px; width:100%;">
+    <div style="font-family:'Oswald',sans-serif; font-size:18px; color:var(--chalk); margin-bottom:8px;">備份提醒</div>
+    <div style="font-size:13.5px; color:var(--muted); line-height:1.7; margin-bottom:18px;">
+      你已累積 <span id="backupModalCount" style="color:var(--brass); font-weight:700;"></span> 筆紀錄，建議現在匯出一份備份存到 iCloud Drive。
+    </div>
+    <button id="backupModalExport" style="width:100%; padding:13px 0; background:var(--brass); color:#241D0C; border:none; border-radius:10px; font-family:'Oswald',sans-serif; font-size:15px; font-weight:600; cursor:pointer; margin-bottom:8px;">立即匯出備份</button>
+    <button id="backupModalSkip" style="width:100%; padding:11px 0; background:none; border:1px solid var(--line); color:var(--muted); border-radius:10px; font-size:14px; cursor:pointer;">下次再說</button>
+  </div>
+</div>
 
 <script>
 let PROGRAM = {
@@ -355,6 +387,11 @@ let PROGRAM = {
     {key:'row', name:'坐姿划船', target:'10–12', type:'weight'},
     {key:'lunge', name:'保加利亞分腿蹲（每邊）', target:'8–10', type:'weight'},
     {key:'core_b', name:'抗旋轉核心', target:'8–10', type:'weight'},
+  ],
+  C: [
+    {key:'treadmill', name:'跑步機', target:'Zone 2', type:'cardio'},
+    {key:'elliptical', name:'滑步機', target:'Zone 2', type:'cardio'},
+    {key:'bike', name:'坐式腳踏車', target:'Zone 2', type:'cardio'},
   ]
 };
 // set count is now dynamic per exercise card
@@ -362,7 +399,14 @@ let PROGRAM = {
 async function loadProgram(){
   try{
     const v = localStorage.getItem('workout-program');
-    if(v) PROGRAM = JSON.parse(v);
+    if(v){
+      PROGRAM = JSON.parse(v);
+      if(!PROGRAM.C) PROGRAM.C = [
+        {key:'treadmill', name:'跑步機', target:'Zone 2', type:'cardio'},
+        {key:'elliptical', name:'滑步機', target:'Zone 2', type:'cardio'},
+        {key:'bike', name:'坐式腳踏車', target:'Zone 2', type:'cardio'},
+      ];
+    }
   }catch(e){ /* keep default PROGRAM */ }
 }
 async function saveProgram(){
@@ -414,7 +458,19 @@ function latestForExercise(key, beforeId){
   return null;
 }
 function formatSets(ex){
-  const type = ex.type || (PROGRAM.A.find(x=>x.key===ex.key) || PROGRAM.B.find(x=>x.key===ex.key) || {}).type || 'weight';
+  const type = ex.type || (PROGRAM.A.find(x=>x.key===ex.key) || PROGRAM.B.find(x=>x.key===ex.key) || PROGRAM.C.find(x=>x.key===ex.key) || {}).type || 'weight';
+  if(type==='cardio'){
+    return ex.sets
+      .filter(s => s.cardio_time || s.cardio_hr || s.cardio_param1 || s.cardio_param2)
+      .map(s => {
+        const parts = [];
+        if(s.cardio_time)   parts.push(`${s.cardio_time}分`);
+        if(s.cardio_hr)     parts.push(`${s.cardio_hr}bpm`);
+        if(s.cardio_param1) parts.push(`坡/阻 ${s.cardio_param1}`);
+        if(s.cardio_param2) parts.push(`速/RPM ${s.cardio_param2}`);
+        return parts.join(' · ');
+      }).join('  ') || '—';
+  }
   return ex.sets
     .filter(s => type==='time' ? s.duration : (s.weight || s.reps))
     .map(s => {
@@ -455,7 +511,29 @@ function renderDayBar(){
 function makeSetRow(i, sv, type){
   const div = document.createElement('div');
   div.className = 'setrow';
-  if(type==='time'){
+  if(type==='cardio'){
+    div.classList.add('cardio-row');
+    div.innerHTML = `
+      <div class="setlabel">第${i+1}段</div>
+      <div class="cardio-grid">
+        <div class="cardio-field">
+          <div class="cardio-label">時間（分鐘）</div>
+          <input type="number" inputmode="decimal" data-field="cardio_time" value="${sv.cardio_time||''}">
+        </div>
+        <div class="cardio-field">
+          <div class="cardio-label">心率（bpm）</div>
+          <input type="number" inputmode="decimal" data-field="cardio_hr" value="${sv.cardio_hr||''}">
+        </div>
+        <div class="cardio-field">
+          <div class="cardio-label">坡度 / 阻力</div>
+          <input type="number" inputmode="decimal" data-field="cardio_param1" value="${sv.cardio_param1||''}">
+        </div>
+        <div class="cardio-field">
+          <div class="cardio-label">速率 / RPM</div>
+          <input type="number" inputmode="decimal" data-field="cardio_param2" value="${sv.cardio_param2||''}">
+        </div>
+      </div>`;
+  } else if(type==='time'){
     const unit = sv.unit || '秒';
     div.innerHTML = `
       <div class="setlabel">第${i+1}組</div>
@@ -555,11 +633,19 @@ function collectDraft(){
       const r = row.querySelector('input[data-field="reps"]');
       const d = row.querySelector('input[data-field="duration"]');
       const u = row.querySelector('select[data-field="unit"]');
+      const ct = row.querySelector('input[data-field="cardio_time"]');
+      const ch = row.querySelector('input[data-field="cardio_hr"]');
+      const cp1 = row.querySelector('input[data-field="cardio_param1"]');
+      const cp2 = row.querySelector('input[data-field="cardio_param2"]');
       sets.push({
         weight: w ? (w.value?Number(w.value):null) : null,
         reps:   r ? (r.value?Number(r.value):null) : null,
         duration: d ? (d.value?Number(d.value):null) : null,
         unit: u ? u.value : null,
+        cardio_time:   ct  ? (ct.value?Number(ct.value):null)   : null,
+        cardio_hr:     ch  ? (ch.value?Number(ch.value):null)   : null,
+        cardio_param1: cp1 ? (cp1.value?Number(cp1.value):null) : null,
+        cardio_param2: cp2 ? (cp2.value?Number(cp2.value):null) : null,
       });
     });
     const note = card.querySelector('.note-input').value.trim();
@@ -577,24 +663,49 @@ async function handleSave(){
   if(idx>-1) log[idx] = entry; else log.push(entry);
   await saveLog();
   showToast('已儲存');
+  maybeRemindBackup();
   renderExercises();
 }
 
-function exportBackup(){
+async function exportBackup(){
   const data = {
     version: 1,
     exportedAt: new Date().toISOString(),
     program: PROGRAM,
     log: log
   };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const date = todayISO().replace(/-/g,'');
+  const filename = `重訓紀錄備份_${date}.json`;
+  const file = new File([blob], filename, {type:'application/json'});
+
+  // iOS: use native Share Sheet so user can save directly to iCloud Drive
+  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file], title:'重訓紀錄備份'});
+      return;
+    }catch(e){
+      if(e.name==='AbortError') return; // user cancelled share sheet
+    }
+  }
+
+  // Fallback for non-iOS
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const date = todayISO().replace(/-/g,'');
-  a.href = url; a.download = `重訓紀錄備份_${date}.json`;
-  a.click();
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast('已匯出備份');
+}
+
+function maybeRemindBackup(){
+  if(log.length > 0 && log.length % 30 === 0){
+    const modal = document.getElementById('backupModal');
+    document.getElementById('backupModalCount').textContent = log.length;
+    modal.style.display = 'flex';
+  }
 }
 
 function importBackup(file){
@@ -705,8 +816,9 @@ function buildSettingRow(day, ex){
     <div class="setting-row2">
       <input type="text" class="tgt" placeholder="目標 如 8–10" value="${(ex.target||'').replace(/"/g,'&quot;')}">
       <select class="ex-type-input">
-        <option value="weight" ${ex.type!=='time'?'selected':''}>重量 × 次數</option>
+        <option value="weight" ${ex.type==='weight'||(!ex.type&&ex.type!=='time'&&ex.type!=='cardio')?'selected':''}>重量 × 次數</option>
         <option value="time" ${ex.type==='time'?'selected':''}>計時（秒/分）</option>
+        <option value="cardio" ${ex.type==='cardio'?'selected':''}>有氧（時間/心率/坡度/速率）</option>
       </select>
     </div>
   `;
@@ -773,7 +885,7 @@ function initDragSort(container){
 }
 
 function renderSettings(){
-  ['A','B'].forEach(day=>{
+  ['A','B','C'].forEach(day=>{
     const container = document.getElementById('set'+day);
     container.innerHTML = '';
     PROGRAM[day].forEach(ex => container.appendChild(buildSettingRow(day, ex)));
@@ -782,8 +894,8 @@ function renderSettings(){
 }
 
 function collectProgramFromSettings(){
-  const next = {A:[], B:[]};
-  ['A','B'].forEach(day=>{
+  const next = {A:[], B:[], C:[]};
+  ['A','B','C'].forEach(day=>{
     document.getElementById('set'+day).querySelectorAll('.setting-ex').forEach(row=>{
       const name = row.querySelector('.ex-name-input').value.trim();
       if(!name) return;
@@ -800,10 +912,13 @@ function collectProgramFromSettings(){
 
 async function handleSaveProgram(){
   PROGRAM = collectProgramFromSettings();
+  if(!PROGRAM.C) PROGRAM.C = [];
   await saveProgram();
   renderSettings();
   showToast('項目已儲存');
-  if(!PROGRAM[currentDay].length) currentDay = (PROGRAM.A.length ? 'A':'B');
+  if(!PROGRAM[currentDay] || !PROGRAM[currentDay].length){
+    currentDay = PROGRAM.A.length ? 'A' : PROGRAM.B.length ? 'B' : 'C';
+  }
   renderDayBar();
   renderExercises();
 }
@@ -848,6 +963,13 @@ async function init(){
   document.getElementById('importInput').addEventListener('change', e=>{
     importBackup(e.target.files[0]);
     e.target.value = '';
+  });
+  document.getElementById('backupModalExport').addEventListener('click', async ()=>{
+    document.getElementById('backupModal').style.display = 'none';
+    await exportBackup();
+  });
+  document.getElementById('backupModalSkip').addEventListener('click', ()=>{
+    document.getElementById('backupModal').style.display = 'none';
   });
 }
 init();
