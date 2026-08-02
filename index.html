@@ -471,6 +471,27 @@
   .theme-switch input:checked + .theme-slider:before{ transform:translateX(22px); }
   .theme-icons{ font-size:18px; }
 
+
+  /* ── Lightbox ── */
+  #lightbox{
+    position:fixed;inset:0;z-index:100;
+    background:rgba(0,0,0,0.92);
+    display:none;align-items:center;justify-content:center;
+    padding:16px;
+  }
+  #lightbox.open{ display:flex; }
+  #lightbox img{
+    max-width:100%;max-height:100%;
+    object-fit:contain;border-radius:8px;
+  }
+  #lightboxClose{
+    position:absolute;top:16px;right:16px;
+    width:36px;height:36px;border-radius:50%;
+    background:rgba(255,255,255,0.15);
+    border:none;color:#fff;font-size:20px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+
 </style>
 </head>
 <body>
@@ -1157,6 +1178,16 @@ function suggestNextDay(){
 
 
 
+
+// ══ Lightbox ═══════════════════════════════════════════════
+function openLightbox(src){
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+}
+
 // ══ Theme ══════════════════════════════════════════════════
 const THEME_DARK = {
   '--bg':'#1B1D19','--surface':'#23261F','--surface2':'#2C3026',
@@ -1499,7 +1530,7 @@ function renderIbHistory(){
         <span style="color:var(--muted);font-size:12px;">▾</span>
       </div>
       <div class="ib-hist-body">
-        ${entry.photo?`<img class="ib-hist-photo" src="${entry.photo}">`:'' }
+        ${entry.photo?`<img class="ib-hist-photo" src="${entry.photo}" style="cursor:pointer;" onclick="openLightbox(this.src)">`:'' }
         <div class="ib-hist-grid">
           ${Object.entries(LABELS).map(([k,l])=>entry[k]!=null?`
             <div class="ib-hist-row">
@@ -1588,6 +1619,7 @@ async function init(){
   document.getElementById('backupModalSkip').addEventListener('click', ()=>{
     document.getElementById('backupModal').style.display = 'none';
   });
+  // lightbox wired via onclick attributes
 
   // Bottom nav
   document.querySelectorAll('.bnav-btn').forEach(b=>{
@@ -1690,6 +1722,12 @@ init();
     <div id="ibHistList"></div>
   </div>
 </section>
+
+
+<div id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <button id="lightboxClose" onclick="closeLightbox()">✕</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
 
 </body>
 </html>
