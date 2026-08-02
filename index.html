@@ -30,7 +30,7 @@
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family:'Inter',sans-serif;
-    padding-bottom:152px;
+    padding-bottom:170px;
     min-height:100vh;
     position:relative;
     overflow-x:hidden;
@@ -192,7 +192,7 @@
 
   .savebar{
     position:fixed; left:0; right:0; bottom:0;
-    padding:14px 16px 14px;bottom:56px;
+    padding:14px 16px 14px;bottom:calc(56px + env(safe-area-inset-bottom));
     background:linear-gradient(to top, var(--bg) 60%, transparent);
     z-index:5;
   }
@@ -356,6 +356,7 @@
     flex:1;background:var(--surface2);border:1px solid var(--line);color:var(--text);
     border-radius:9px;padding:10px;font-size:14px;font-family:'Inter',sans-serif;
   }
+  .tpl-section-title{font-size:12px;color:var(--muted);margin:8px 0 6px;}
   .tpl-save-confirm{
     padding:10px 16px;border:none;border-radius:9px;
     background:var(--accent);color:#fff;font-size:14px;cursor:pointer;
@@ -487,8 +488,16 @@
 
   <div class="settings-day">
     <div class="settings-daytitle">模板庫</div>
-    <div class="settings-hint">將目前 A/B/C 的動作設定存成模板，之後一鍵套用。</div>
-    <div class="tpl-list" id="tplList"></div>
+    <div class="settings-hint">每個日程可各自存成模板，之後單獨套用到任一天。</div>
+    <div id="tplList"></div>
+    <div class="tpl-section-title">存入新模板</div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <select id="tplDaySelect" style="background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 8px;font-size:14px;font-family:'Inter',sans-serif;">
+        <option value="A">Day A</option>
+        <option value="B">Day B</option>
+        <option value="C">Day C（有氧）</option>
+      </select>
+    </div>
     <div class="tpl-save-row">
       <input type="text" class="tpl-name-input" id="tplNameInput" placeholder="輸入模板名稱">
       <button class="tpl-save-confirm" id="tplSaveBtn">儲存</button>
@@ -1217,35 +1226,51 @@ function renderTemplates(){
   if(!list) return;
   list.innerHTML = '';
   if(templates.length===0){
-    list.innerHTML = '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">尚無模板，設定好動作後儲存。</div>';
+    list.innerHTML = '<div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">尚無模板，設定好動作後儲存。</div>';
     return;
   }
-  templates.forEach(tpl=>{
-    const card = document.createElement('div');
-    card.className = 'tpl-card';
-    card.innerHTML = `
-      <div class="tpl-name">${tpl.name}</div>
-      <div class="tpl-actions">
-        <button class="tpl-btn load">套用</button>
-        <button class="tpl-btn del">刪除</button>
-      </div>`;
-    card.querySelector('.load').addEventListener('click',()=>{
-      if(!confirm('套用「'+tpl.name+'」會覆蓋目前的 A/B/C 設定，確定嗎？')) return;
-      PROGRAM = JSON.parse(JSON.stringify(tpl.program));
-      if(!PROGRAM.C) PROGRAM.C=[];
-      saveProgram();
-      renderSettings();
-      renderDayBar();
-      renderExercises();
-      showToast('已套用模板：'+tpl.name);
+  // Group by day
+  const days = ['A','B','C'];
+  const dayLabels = {A:'Day A',B:'Day B',C:'Day C（有氧）'};
+  days.forEach(day=>{
+    const dayTpls = templates.filter(t=>t.day===day);
+    if(dayTpls.length===0) return;
+    const title = document.createElement('div');
+    title.style.cssText='font-size:11px;color:var(--brass);font-family:"IBM Plex Mono",monospace;letter-spacing:.08em;margin:8px 0 4px;';
+    title.textContent = dayLabels[day];
+    list.appendChild(title);
+    dayTpls.forEach(tpl=>{
+      const card = document.createElement('div');
+      card.className = 'tpl-card';
+      card.innerHTML = `
+        <div class="tpl-name">${tpl.name}</div>
+        <div class="tpl-actions">
+          <select class="tpl-apply-day" style="background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:5px 6px;font-size:11px;">
+            <option value="A">→ A</option><option value="B">→ B</option><option value="C">→ C</option>
+          </select>
+          <button class="tpl-btn load">套用</button>
+          <button class="tpl-btn del">刪除</button>
+        </div>`;
+      // Set default apply target to same day
+      card.querySelector('.tpl-apply-day').value = tpl.day;
+      card.querySelector('.load').addEventListener('click',()=>{
+        const target = card.querySelector('.tpl-apply-day').value;
+        if(!confirm('將「'+tpl.name+'」套用到 Day '+target+'？')) return;
+        PROGRAM[target] = JSON.parse(JSON.stringify(tpl.exercises));
+        saveProgram();
+        renderSettings();
+        renderDayBar();
+        renderExercises();
+        showToast('已套用到 Day '+target);
+      });
+      card.querySelector('.del').addEventListener('click',()=>{
+        if(!confirm('確定刪除模板「'+tpl.name+'」？')) return;
+        templates = templates.filter(t=>t.id!==tpl.id);
+        saveTemplates();
+        renderTemplates();
+      });
+      list.appendChild(card);
     });
-    card.querySelector('.del').addEventListener('click',()=>{
-      if(!confirm('確定刪除模板「'+tpl.name+'」？')) return;
-      templates = templates.filter(t=>t.id!==tpl.id);
-      saveTemplates();
-      renderTemplates();
-    });
-    list.appendChild(card);
   });
 }
 
@@ -1253,12 +1278,14 @@ async function saveTplFromCurrent(){
   const nameInput = document.getElementById('tplNameInput');
   const name = nameInput.value.trim();
   if(!name){ alert('請先輸入模板名稱'); return; }
+  const daySelect = document.getElementById('tplDaySelect');
+  const day = daySelect ? daySelect.value : 'A';
   const cur = collectProgramFromSettings();
-  templates.push({ id:'tpl_'+Date.now(), name, program: cur });
+  templates.push({ id:'tpl_'+Date.now(), name, day, exercises: cur[day] });
   await saveTemplates();
   nameInput.value = '';
   renderTemplates();
-  showToast('模板已儲存');
+  showToast('已儲存 Day '+day+' 模板：'+name);
 }
 
 // ══ InBody ═══════════════════════════════════════════════════
