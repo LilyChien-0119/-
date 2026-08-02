@@ -43,7 +43,7 @@
     pointer-events:none; z-index:0;
   }
   header{
-    padding:22px 18px 14px;
+    padding:calc(env(safe-area-inset-top, 0px) + 16px) 18px 14px;
     position:relative; z-index:1;
   }
   .eyebrow{
@@ -1632,7 +1632,7 @@ init();
 </nav>
 
 <section id="inbodySection" style="display:none;">
-  <header style="padding:22px 18px 4px;position:relative;z-index:1;">
+  <header style="padding:calc(env(safe-area-inset-top, 0px) + 16px) 18px 4px;position:relative;z-index:1;">
     <div class="eyebrow">BODY COMPOSITION</div>
     <h1>身體組成</h1>
   </header>
