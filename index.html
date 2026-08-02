@@ -1089,6 +1089,42 @@ function suggestNextDay(){
 // ══ Section switching ══════════════════════════════════════
 let currentSection = 'workout';
 
+function initInbody(){
+  window._ibInited = true;
+  const d = document.getElementById('ibDate');
+  if(d && !d.value) d.value = todayISO();
+  document.querySelectorAll('.ib-tab').forEach(t=>{
+    t.addEventListener('click',()=>{ currentIbTab=t.dataset.ibtab; renderIbTabs(); });
+  });
+  document.querySelectorAll('#ibGenderRow .ib-gender-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      ibGender=b.dataset.g;
+      document.querySelectorAll('#ibGenderRow .ib-gender-btn').forEach(x=>x.classList.toggle('active',x===b));
+      ibAutoCalc();
+    });
+  });
+  document.querySelector('#ibGenderRow .ib-gender-btn[data-g="F"]').classList.add('active');
+  ['ibHeight','ibWeight','ibAge'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', ibAutoCalc);
+  });
+  document.getElementById('ibSaveBtn').addEventListener('click', saveIbEntry);
+  document.getElementById('photoArea').addEventListener('click',()=>document.getElementById('photoInput').click());
+  document.getElementById('photoInput').addEventListener('change', async e=>{
+    const file=e.target.files[0]; if(!file) return;
+    ibPhotoData = await compressPhoto(file);
+    document.getElementById('photoPreview').src=ibPhotoData;
+    document.getElementById('photoPreview').style.display='block';
+    document.getElementById('photoPlaceholder').style.display='none';
+    e.target.value='';
+  });
+  document.getElementById('photoClear').addEventListener('click', ev=>{
+    ev.stopPropagation();
+    ibPhotoData=null;
+    document.getElementById('photoPreview').style.display='none';
+    document.getElementById('photoPlaceholder').style.display='';
+  });
+}
+
 function switchSection(sec){
   currentSection = sec;
   const ws = document.getElementById('workoutSection');
@@ -1096,6 +1132,7 @@ function switchSection(sec){
   if(sec==='inbody'){
     ws.style.display = 'none';
     ib.style.display = '';
+    if(!window._ibInited) initInbody();
   } else {
     ws.style.display = '';
     ib.style.display = 'none';
@@ -1383,8 +1420,13 @@ function renderIbHistory(){
 const _origExport = exportBackup;
 
 async function init(){
+  try{
   await loadProgram();
   await loadLog();
+  // Wire bottom nav first before anything can fail
+  document.querySelectorAll('.bnav-btn').forEach(b=>{
+    b.addEventListener('click',()=>switchSection(b.dataset.section));
+  });
   document.getElementById('dateInput').value = todayISO();
   currentDay = suggestNextDay();
   renderDayBar();
@@ -1440,48 +1482,16 @@ async function init(){
   await loadTemplates();
   document.getElementById('tplSaveBtn').addEventListener('click', saveTplFromCurrent);
 
-  // InBody
+  // InBody listeners set up lazily on first open
   await loadInbody();
-  document.getElementById('ibDate').value = todayISO();
-  document.querySelectorAll('.ib-tab').forEach(t=>{
-    t.addEventListener('click',()=>{ currentIbTab=t.dataset.ibtab; renderIbTabs(); });
-  });
-  document.querySelectorAll('#ibGenderRow .ib-gender-btn').forEach(b=>{
-    b.addEventListener('click',()=>{
-      ibGender=b.dataset.g;
-      document.querySelectorAll('#ibGenderRow .ib-gender-btn').forEach(x=>x.classList.toggle('active',x===b));
-      ibAutoCalc();
-    });
-  });
-  // Set default gender
-  document.querySelector('#ibGenderRow .ib-gender-btn[data-g="F"]').classList.add('active');
-  ['ibHeight','ibWeight','ibAge'].forEach(id=>{
-    document.getElementById(id).addEventListener('input', ibAutoCalc);
-  });
-  document.getElementById('ibSaveBtn').addEventListener('click', saveIbEntry);
-  // Photo
-  document.getElementById('photoArea').addEventListener('click',()=>document.getElementById('photoInput').click());
-  document.getElementById('photoInput').addEventListener('change', async e=>{
-    const file=e.target.files[0]; if(!file) return;
-    ibPhotoData = await compressPhoto(file);
-    document.getElementById('photoPreview').src=ibPhotoData;
-    document.getElementById('photoPreview').style.display='block';
-    document.getElementById('photoPlaceholder').style.display='none';
-    e.target.value='';
-  });
-  document.getElementById('photoClear').addEventListener('click', ev=>{
-    ev.stopPropagation();
-    ibPhotoData=null;
-    document.getElementById('photoPreview').style.display='none';
-    document.getElementById('photoPlaceholder').style.display='';
-  });
+} catch(e){ console.error("init error:", e); }
 }
 init();
 </script>
 
 </div>
 <nav id="bottomNav">
-  <button class="bnav-btn active" data-section="workout">
+  <button class="bnav-btn active" data-section="workout" onclick="switchSection('workout')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <rect x="2" y="7" width="4" height="10" rx="1"/><rect x="18" y="7" width="4" height="10" rx="1"/>
       <line x1="6" y1="12" x2="18" y2="12"/><rect x="9" y="9" width="2" height="6" rx="1"/>
@@ -1489,7 +1499,7 @@ init();
     </svg>
     <span>重訓紀錄</span>
   </button>
-  <button class="bnav-btn" data-section="inbody">
+  <button class="bnav-btn" data-section="inbody" onclick="switchSection('inbody')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/>
       <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
