@@ -644,7 +644,7 @@ function collectDraft(){
         unit: u ? u.value : null,
         cardio_time:   ct  ? (ct.value?Number(ct.value):null)      : null,
         cardio_hr:     ch  ? (ch.value?ch.value.trim():null)         : null,
-        cardio_param1: cp1 ? (cp1.value?Number(cp1.value):null)     : null,
+        cardio_param1: cp1 ? (cp1.value?cp1.value.trim():null)       : null,
         cardio_param2: cp2 ? (cp2.value?cp2.value.trim():null)       : null,
       });
     });
