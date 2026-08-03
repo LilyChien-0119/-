@@ -1585,6 +1585,18 @@ function renderIbHistory(){
     const head = card.querySelector('.ib-hist-head');
     const body = card.querySelector('.ib-hist-body');
     const chev = card.querySelector('span');
+    // Build photos with DOM (avoids putting base64 in onclick attr)
+    const photoRow = card.querySelector('.ib-photo-row');
+    if(photoRow){
+      const photos = (entry.photos && entry.photos.length>0) ? entry.photos : (entry.photo ? [entry.photo] : []);
+      photos.forEach(p=>{
+        const img = document.createElement('img');
+        img.className = 'ib-hist-photo-thumb';
+        img.src = p;
+        img.addEventListener('click', ()=> openLightbox(p));
+        photoRow.appendChild(img);
+      });
+    }
     head.addEventListener('click',()=>{
       const open=body.classList.toggle('open');
       chev.style.transform=open?'rotate(180deg)':'';
