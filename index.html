@@ -1430,6 +1430,7 @@ async function saveTplFromCurrent(){
 let inbodyLog = [];
 let ibGender = 'F';
 let ibPhotos = [];
+let ibEditId = null;
 let currentIbTab = 'form';
 
 async function loadInbody(){
@@ -1515,7 +1516,7 @@ async function saveIbEntry(){
   const date = document.getElementById('ibDate').value;
   if(!date){ alert('請填入測量日期'); return; }
   const entry = {
-    id: 'ib_'+Date.now(),
+    id: ibEditId || 'ib_'+Date.now(),
     date,
     age:    parseFloat(document.getElementById('ibAge').value)||null,
     gender: ibGender,
@@ -1532,9 +1533,16 @@ async function saveIbEntry(){
     bmr:    parseFloat(document.getElementById('ibBMR').value)||null,
     photos: [...ibPhotos],
   };
-  inbodyLog.push(entry);
+  if(ibEditId){
+    const idx = inbodyLog.findIndex(e=>e.id===ibEditId);
+    if(idx>-1) inbodyLog[idx]=entry; else inbodyLog.push(entry);
+    ibEditId=null;
+    document.getElementById('ibSaveBtn').textContent='儲存紀錄';
+  } else {
+    inbodyLog.push(entry);
+  }
   await saveInbody();
-  showToast('身體組成紀錄已儲存');
+  showToast(ibEditId===null?'已更新':'身體組成紀錄已儲存');
   // reset form
   ['ibAge','ibHeight','ibWeight','ibBMI','ibWaist','ibBodyFat','ibBodyFatPct',
    'ibSkeletal','ibFatMass','ibVisceralLevel','ibVisceralArea','ibBMR'].forEach(id=>{
@@ -1546,9 +1554,38 @@ async function saveIbEntry(){
   renderIbTabs();
 }
 
+
+function editIbEntry(entryId){
+  const entry = inbodyLog.find(e=>e.id===entryId);
+  if(!entry) return;
+  ibEditId = entryId;
+  const setVal = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val||''; };
+  setVal('ibDate', entry.date);
+  setVal('ibAge', entry.age);
+  setVal('ibHeight', entry.height);
+  setVal('ibWeight', entry.weight);
+  setVal('ibWaist', entry.waist);
+  setVal('ibBodyFat', entry.bodyFat);
+  setVal('ibBodyFatPct', entry.bodyFatPct);
+  setVal('ibSkeletal', entry.skeletal);
+  setVal('ibFatMass', entry.fatMass);
+  setVal('ibVisceralLevel', entry.visceralLevel);
+  setVal('ibVisceralArea', entry.visceralArea);
+  ibGender = entry.gender || 'F';
+  document.querySelectorAll('#ibGenderRow .ib-gender-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.g===ibGender);
+  });
+  ibAutoCalc();
+  ibPhotos = [...((entry.photos&&entry.photos.length>0)?entry.photos:(entry.photo?[entry.photo]:[])) ];
+  renderPhotoGrid();
+  document.getElementById('ibSaveBtn').textContent = '更新紀錄';
+  currentIbTab='form';
+  renderIbTabs();
+}
+
 function renderIbHistory(){
   const list = document.getElementById('ibHistList');
-  const sorted = [...inbodyLog].sort((a,b)=>a.date<b.date?1:-1);
+  const sorted = [...inbodyLog].sort((a,b)=> a.date<b.date ? 1:-1);
   if(sorted.length===0){
     list.innerHTML='<div style="margin:40px 0;text-align:center;color:var(--muted);font-size:14px;">尚無身體組成紀錄</div>';
     return;
@@ -1557,63 +1594,102 @@ function renderIbHistory(){
   const LABELS = {
     weight:'體重(kg)',bmi:'BMI',bodyFatPct:'體脂率(%)',skeletal:'骨骼肌(kg)',
     fatMass:'脂肪重(kg)',bodyFat:'體脂肪(kg)',waist:'腰圍(cm)',
-    visceralLevel:'內臟脂肪程度',visceralArea:'內臟脂肪面積',bmr:'基礎代謝率'
+    visceralLevel:'內臟脂肪程度',visceralArea:'內臟脂肪面積(cm²)',bmr:'基礎代謝率'
   };
   sorted.forEach(entry=>{
     const card = document.createElement('div');
     card.className='ib-hist-card';
-    card.innerHTML=`
-      <div class="ib-hist-head">
-        <div>
-          <div class="ib-hist-date">${fmtDate(entry.date)}</div>
-          <div class="ib-hist-summary">${entry.weight||'?'}kg · 體脂${entry.bodyFatPct||'?'}% · BMI ${entry.bmi||'?'}</div>
-        </div>
-        <span style="color:var(--muted);font-size:12px;">▾</span>
-      </div>
-      <div class="ib-hist-body">
-        ${entry.photo?`<img class="ib-hist-photo" src="${entry.photo}" style="cursor:pointer;" onclick="openLightbox(this.src)">`:'' }
-        <div class="ib-hist-grid">
-          ${Object.entries(LABELS).map(([k,l])=>entry[k]!=null?`
-            <div class="ib-hist-row">
-              <span class="ib-hist-key">${l}</span>
-              <span class="ib-hist-val">${entry[k]}</span>
-            </div>`:''
-          ).join('')}
-        </div>
-        <button class="hdel" style="margin-top:10px;" data-id="${entry.id}">刪除這筆紀錄</button>
-      </div>`;
-    const head = card.querySelector('.ib-hist-head');
-    const body = card.querySelector('.ib-hist-body');
-    const chev = card.querySelector('span');
-    // Build photos with DOM (avoids putting base64 in onclick attr)
-    const photoRow = card.querySelector('.ib-photo-row');
-    if(photoRow){
-      const photos = (entry.photos && entry.photos.length>0) ? entry.photos : (entry.photo ? [entry.photo] : []);
+
+    // Head
+    const head = document.createElement('div');
+    head.className='ib-hist-head';
+    const headLeft = document.createElement('div');
+    const dateDiv = document.createElement('div');
+    dateDiv.className='ib-hist-date';
+    dateDiv.textContent = fmtDate(entry.date);
+    const sumDiv = document.createElement('div');
+    sumDiv.className='ib-hist-summary';
+    sumDiv.textContent = `${entry.weight||'?'}kg · 體脂${entry.bodyFatPct||'?'}% · BMI ${entry.bmi||'?'}`;
+    headLeft.appendChild(dateDiv);
+    headLeft.appendChild(sumDiv);
+    const chev = document.createElement('span');
+    chev.style.cssText='color:var(--muted);font-size:12px;';
+    chev.textContent='▾';
+    head.appendChild(headLeft);
+    head.appendChild(chev);
+
+    // Body
+    const body = document.createElement('div');
+    body.className='ib-hist-body';
+
+    // Photos (DOM only, no base64 in attributes)
+    const photos = (entry.photos&&entry.photos.length>0) ? entry.photos : (entry.photo?[entry.photo]:[]);
+    if(photos.length>0){
+      const row = document.createElement('div');
+      row.className='ib-photo-row';
       photos.forEach(p=>{
         const img = document.createElement('img');
-        img.className = 'ib-hist-photo-thumb';
-        img.src = p;
-        img.addEventListener('click', ()=> openLightbox(p));
-        photoRow.appendChild(img);
+        img.className='ib-hist-photo-thumb';
+        img.src=p;
+        img.addEventListener('click',()=>openLightbox(p));
+        row.appendChild(img);
       });
+      body.appendChild(row);
     }
-    head.addEventListener('click',()=>{
-      const open=body.classList.toggle('open');
-      chev.style.transform=open?'rotate(180deg)':'';
+
+    // Data grid
+    const grid = document.createElement('div');
+    grid.className='ib-hist-grid';
+    Object.entries(LABELS).forEach(([k,l])=>{
+      if(entry[k]==null) return;
+      const row = document.createElement('div');
+      row.className='ib-hist-row';
+      const key = document.createElement('span');
+      key.className='ib-hist-key'; key.textContent=l;
+      const val = document.createElement('span');
+      val.className='ib-hist-val'; val.textContent=entry[k];
+      row.appendChild(key); row.appendChild(val);
+      grid.appendChild(row);
     });
+    body.appendChild(grid);
+
+    // Edit button
+    const editBtn = document.createElement('button');
+    editBtn.className='hdel';
+    editBtn.textContent='編輯這筆紀錄';
+    editBtn.style.marginTop='10px';
+    editBtn.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      editIbEntry(entry.id);
+    });
+    body.appendChild(editBtn);
+
+    // Delete button
+    const delBtn = document.createElement('button');
+    delBtn.className='hdel';
+    delBtn.textContent='刪除這筆紀錄';
+    delBtn.style.marginTop='6px';
     let delConf=false;
-    card.querySelector('.hdel').addEventListener('click', async ev=>{
+    delBtn.addEventListener('click', async ev=>{
       ev.stopPropagation();
       if(!delConf){
         delConf=true;
-        ev.target.textContent='再次點擊確認刪除';
-        ev.target.classList.add('confirm');
-        setTimeout(()=>{ delConf=false; if(ev.target){ ev.target.textContent='刪除這筆紀錄'; ev.target.classList.remove('confirm'); }},3000);
+        delBtn.textContent='再次點擊確認刪除';
+        delBtn.classList.add('confirm');
+        setTimeout(()=>{ delConf=false; delBtn.textContent='刪除這筆紀錄'; delBtn.classList.remove('confirm'); },3000);
         return;
       }
       inbodyLog=inbodyLog.filter(e=>e.id!==entry.id);
       await saveInbody();
       renderIbHistory();
+    });
+    body.appendChild(delBtn);
+
+    card.appendChild(head);
+    card.appendChild(body);
+    head.addEventListener('click',()=>{
+      const open=body.classList.toggle('open');
+      chev.style.transform=open?'rotate(180deg)':'';
     });
     list.appendChild(card);
   });
@@ -1730,7 +1806,7 @@ init();
     <div class="ib-section-title">基本資料</div>
     <div class="ib-grid">
       <div class="ib-field"><div class="ib-label">測量日期</div><input type="date" class="ib-input" id="ibDate"></div>
-      <div class="ib-field"><div class="ib-label">年齡</div><input type="number" inputmode="numeric" class="ib-input" id="ibAge" placeholder="27"></div>
+      <div class="ib-field"><div class="ib-label">年齡</div><input type="number" inputmode="numeric" class="ib-input" id="ibAge" placeholder=""></div>
     </div>
     <div class="ib-section-title">性別</div>
     <div class="ib-gender-row" id="ibGenderRow">
@@ -1739,22 +1815,22 @@ init();
     </div>
     <div class="ib-section-title">體型測量</div>
     <div class="ib-grid">
-      <div class="ib-field"><div class="ib-label">身高 (cm)</div><input type="number" inputmode="decimal" class="ib-input" id="ibHeight" placeholder="160"></div>
-      <div class="ib-field"><div class="ib-label">體重 (kg)</div><input type="number" inputmode="decimal" class="ib-input" id="ibWeight" placeholder="57"></div>
+      <div class="ib-field"><div class="ib-label">身高 (cm)</div><input type="number" inputmode="decimal" class="ib-input" id="ibHeight" placeholder=""></div>
+      <div class="ib-field"><div class="ib-label">體重 (kg)</div><input type="number" inputmode="decimal" class="ib-input" id="ibWeight" placeholder=""></div>
       <div class="ib-field"><div class="ib-label">BMI（自動）</div><input type="text" class="ib-input" id="ibBMI" readonly placeholder="—"></div>
-      <div class="ib-field"><div class="ib-label">腰圍 (cm)</div><input type="number" inputmode="decimal" class="ib-input" id="ibWaist" placeholder="68"></div>
+      <div class="ib-field"><div class="ib-label">腰圍 (cm)</div><input type="number" inputmode="decimal" class="ib-input" id="ibWaist" placeholder=""></div>
     </div>
     <div class="ib-section-title">身體組成</div>
     <div class="ib-grid">
-      <div class="ib-field"><div class="ib-label">體脂肪 (kg)</div><input type="number" inputmode="decimal" class="ib-input" id="ibBodyFat" placeholder="14.5"></div>
-      <div class="ib-field"><div class="ib-label">體脂率 (%)</div><input type="number" inputmode="decimal" class="ib-input" id="ibBodyFatPct" placeholder="25.5"></div>
-      <div class="ib-field"><div class="ib-label">骨骼肌肉重 (kg)</div><input type="number" inputmode="decimal" class="ib-input" id="ibSkeletal" placeholder="22.1"></div>
-      <div class="ib-field"><div class="ib-label">脂肪重 (kg)</div><input type="number" inputmode="decimal" class="ib-input" id="ibFatMass" placeholder="14.5"></div>
+      <div class="ib-field"><div class="ib-label">體脂肪 (kg)</div><input type="number" inputmode="decimal" class="ib-input" id="ibBodyFat" placeholder=""></div>
+      <div class="ib-field"><div class="ib-label">體脂率 (%)</div><input type="number" inputmode="decimal" class="ib-input" id="ibBodyFatPct" placeholder=""></div>
+      <div class="ib-field"><div class="ib-label">骨骼肌肉重 (kg)</div><input type="number" inputmode="decimal" class="ib-input" id="ibSkeletal" placeholder=""></div>
+      <div class="ib-field"><div class="ib-label">脂肪重 (kg)</div><input type="number" inputmode="decimal" class="ib-input" id="ibFatMass" placeholder=""></div>
     </div>
     <div class="ib-section-title">內臟脂肪</div>
     <div class="ib-grid">
-      <div class="ib-field"><div class="ib-label">內臟脂肪程度</div><input type="number" inputmode="decimal" class="ib-input" id="ibVisceralLevel" placeholder="3"></div>
-      <div class="ib-field"><div class="ib-label">內臟脂肪面積 (cm²)</div><input type="number" inputmode="decimal" class="ib-input" id="ibVisceralArea" placeholder="45"></div>
+      <div class="ib-field"><div class="ib-label">內臟脂肪程度</div><input type="number" inputmode="decimal" class="ib-input" id="ibVisceralLevel" placeholder=""></div>
+      <div class="ib-field"><div class="ib-label">內臟脂肪面積 (cm²)</div><input type="number" inputmode="decimal" class="ib-input" id="ibVisceralArea" placeholder=""></div>
     </div>
     <div class="ib-section-title">代謝</div>
     <div class="ib-grid">
