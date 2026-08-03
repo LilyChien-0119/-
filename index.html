@@ -492,6 +492,27 @@
     cursor:pointer;display:flex;align-items:center;justify-content:center;
   }
 
+
+  .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+  .photo-slot{aspect-ratio:1;border-radius:10px;overflow:hidden;position:relative;}
+  .photo-slot img{width:100%;height:100%;object-fit:cover;cursor:pointer;display:block;}
+  .photo-remove{
+    position:absolute;top:4px;right:4px;
+    background:rgba(0,0,0,0.55);color:#fff;
+    border:none;border-radius:50%;width:22px;height:22px;
+    font-size:12px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .photo-add-btn{
+    aspect-ratio:1;border:2px dashed var(--line);border-radius:10px;
+    background:var(--surface2);color:var(--muted);font-size:30px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;width:100%;
+  }
+  .ib-photo-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .ib-hist-photo-thumb{
+    height:90px;width:90px;object-fit:cover;border-radius:8px;cursor:pointer;
+  }
+
 </style>
 </head>
 <body>
@@ -1240,20 +1261,14 @@ function initInbody(){
     document.getElementById(id).addEventListener('input', ibAutoCalc);
   });
   document.getElementById('ibSaveBtn').addEventListener('click', saveIbEntry);
-  document.getElementById('photoArea').addEventListener('click',()=>document.getElementById('photoInput').click());
+  renderPhotoGrid();
   document.getElementById('photoInput').addEventListener('change', async e=>{
     const file=e.target.files[0]; if(!file) return;
-    ibPhotoData = await compressPhoto(file);
-    document.getElementById('photoPreview').src=ibPhotoData;
-    document.getElementById('photoPreview').style.display='block';
-    document.getElementById('photoPlaceholder').style.display='none';
+    if(ibPhotos.length>=5){ alert('最多上傳5張照片'); return; }
+    const data = await compressPhoto(file);
+    ibPhotos.push(data);
+    renderPhotoGrid();
     e.target.value='';
-  });
-  document.getElementById('photoClear').addEventListener('click', ev=>{
-    ev.stopPropagation();
-    ibPhotoData=null;
-    document.getElementById('photoPreview').style.display='none';
-    document.getElementById('photoPlaceholder').style.display='';
   });
 }
 
@@ -1414,7 +1429,7 @@ async function saveTplFromCurrent(){
 // ══ InBody ═══════════════════════════════════════════════════
 let inbodyLog = [];
 let ibGender = 'F';
-let ibPhotoData = null;
+let ibPhotos = [];
 let currentIbTab = 'form';
 
 async function loadInbody(){
@@ -1432,6 +1447,33 @@ function calcBMR(w,h,age,gender){
   if(!w||!h||!age) return null;
   const base = 10*w + 6.25*h - 5*age;
   return Math.round(gender==='M' ? base+5 : base-161);
+}
+
+
+function renderPhotoGrid(){
+  const grid = document.getElementById('photoGrid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  ibPhotos.forEach((photo,idx)=>{
+    const slot = document.createElement('div');
+    slot.className = 'photo-slot';
+    const img = document.createElement('img');
+    img.src = photo;
+    img.onclick = ()=> openLightbox(photo);
+    const rm = document.createElement('button');
+    rm.className = 'photo-remove';
+    rm.textContent = '✕';
+    rm.onclick = (e)=>{ e.stopPropagation(); ibPhotos.splice(idx,1); renderPhotoGrid(); };
+    slot.appendChild(img); slot.appendChild(rm);
+    grid.appendChild(slot);
+  });
+  if(ibPhotos.length < 5){
+    const addBtn = document.createElement('button');
+    addBtn.className = 'photo-add-btn';
+    addBtn.textContent = '+';
+    addBtn.addEventListener('click', ()=> document.getElementById('photoInput').click());
+    grid.appendChild(addBtn);
+  }
 }
 
 function ibAutoCalc(){
@@ -1488,7 +1530,7 @@ async function saveIbEntry(){
     visceralLevel: parseFloat(document.getElementById('ibVisceralLevel').value)||null,
     visceralArea:  parseFloat(document.getElementById('ibVisceralArea').value)||null,
     bmr:    parseFloat(document.getElementById('ibBMR').value)||null,
-    photo:  ibPhotoData||null,
+    photos: [...ibPhotos],
   };
   inbodyLog.push(entry);
   await saveInbody();
@@ -1498,9 +1540,8 @@ async function saveIbEntry(){
    'ibSkeletal','ibFatMass','ibVisceralLevel','ibVisceralArea','ibBMR'].forEach(id=>{
     document.getElementById(id).value='';
   });
-  ibPhotoData=null;
-  document.getElementById('photoPreview').style.display='none';
-  document.getElementById('photoPlaceholder').style.display='';
+  ibPhotos=[];
+  renderPhotoGrid();
   currentIbTab='ibhist';
   renderIbTabs();
 }
@@ -1708,12 +1749,8 @@ init();
       <div class="ib-field"><div class="ib-label">基礎代謝率（自動）</div><input type="text" class="ib-input" id="ibBMR" readonly placeholder="—"></div>
       <div class="ib-field full"><div style="font-size:11px;color:var(--muted);margin-top:4px;">身高、體重、年齡、性別輸入後自動計算</div></div>
     </div>
-    <div class="ib-section-title">照片</div>
-    <div class="photo-area" id="photoArea">
-      <span id="photoPlaceholder">點擊上傳照片</span>
-      <img id="photoPreview" style="display:none;">
-      <button class="photo-clear" id="photoClear">✕</button>
-    </div>
+    <div class="ib-section-title">照片（最多5張）</div>
+    <div id="photoGrid" class="photo-grid"></div>
     <input type="file" id="photoInput" accept="image/*" style="display:none;">
     <button class="savebtn" id="ibSaveBtn" style="width:100%;margin-bottom:8px;">儲存紀錄</button>
   </div>
