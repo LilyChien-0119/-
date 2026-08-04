@@ -535,7 +535,10 @@
     <button class="daybtn" data-day="A">DAY A</button>
     <button class="daybtn" data-day="B">DAY B</button>
     <button class="daybtn" data-day="C">DAY C</button>
-    <input type="date" id="dateInput">
+    <button class="daybtn" data-day="D">DAY D</button>
+  </div>
+  <div style="padding:0 14px 10px;">
+    <input type="date" id="dateInput" style="width:100%;">
   </div>
   <div id="exList"></div>
 </main>
@@ -590,6 +593,11 @@
 
 
   <div class="settings-day">
+    <div class="settings-daytitle">DAY D</div>
+    <div id="setD"></div>
+    <button class="addex" data-day="D">＋ 新增動作</button>
+  </div>
+  <div class="settings-day">
     <div class="settings-daytitle">模板庫</div>
     <div class="settings-hint">每個日程可各自存成模板，之後單獨套用到任一天。</div>
     <div id="tplList"></div>
@@ -598,7 +606,8 @@
       <select id="tplDaySelect" style="background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 8px;font-size:14px;font-family:'Inter',sans-serif;">
         <option value="A">Day A</option>
         <option value="B">Day B</option>
-        <option value="C">Day C（有氧）</option>
+        <option value="C">Day C</option>
+        <option value="D">Day D（有氧）</option>
       </select>
     </div>
     <div class="tpl-save-row">
@@ -651,6 +660,13 @@ let PROGRAM = {
     {key:'core_b', name:'抗旋轉核心', target:'8–10', type:'weight'},
   ],
   C: [
+    {key:'squat_c', name:'哈克深蹲', target:'8–10', type:'weight'},
+    {key:'rdl_c', name:'硬舉', target:'8–10', type:'weight'},
+    {key:'incline', name:'上斜臥推', target:'8–12', type:'weight'},
+    {key:'facepull', name:'臉拉 / 後肩', target:'12–15', type:'weight'},
+    {key:'curl', name:'二頭彎舉', target:'10–12', type:'weight'},
+  ],
+  D: [
     {key:'treadmill', name:'跑步機', target:'Zone 2', type:'cardio'},
     {key:'elliptical', name:'滑步機', target:'Zone 2', type:'cardio'},
     {key:'bike', name:'坐式腳踏車', target:'Zone 2', type:'cardio'},
@@ -663,7 +679,9 @@ async function loadProgram(){
     const v = localStorage.getItem('workout-program');
     if(v){
       PROGRAM = JSON.parse(v);
-      if(!PROGRAM.C) PROGRAM.C = [
+      if(!PROGRAM.C) PROGRAM.C = [];
+  if(!PROGRAM.D) PROGRAM.D = [];
+      if(!PROGRAM.D) PROGRAM.D = [
         {key:'treadmill', name:'跑步機', target:'Zone 2', type:'cardio'},
         {key:'elliptical', name:'滑步機', target:'Zone 2', type:'cardio'},
         {key:'bike', name:'坐式腳踏車', target:'Zone 2', type:'cardio'},
@@ -986,6 +1004,7 @@ function importBackup(file){
       if(data.weekPlan) weekPlan = data.weekPlan;
       if(data.templates) templates = data.templates;
       if(data.inbodyLog) inbodyLog = data.inbodyLog;
+      if(!PROGRAM.D) PROGRAM.D=[];
       await saveProgram(); await saveLog();
       await saveWeekPlan(); await saveTemplates(); await saveInbody();
       showToast('已還原備份');
@@ -1153,7 +1172,7 @@ function initDragSort(container){
 }
 
 function renderSettings(){
-  ['A','B','C'].forEach(day=>{
+  ['A','B','C','D'].forEach(day=>{
     const container = document.getElementById('set'+day);
     container.innerHTML = '';
     PROGRAM[day].forEach(ex => container.appendChild(buildSettingRow(day, ex)));
@@ -1162,8 +1181,8 @@ function renderSettings(){
 }
 
 function collectProgramFromSettings(){
-  const next = {A:[], B:[], C:[]};
-  ['A','B','C'].forEach(day=>{
+  const next = {A:[], B:[], C:[], D:[]};
+  ['A','B','C','D'].forEach(day=>{
     document.getElementById('set'+day).querySelectorAll('.setting-ex').forEach(row=>{
       const name = row.querySelector('.ex-name-input').value.trim();
       if(!name) return;
@@ -1181,11 +1200,12 @@ function collectProgramFromSettings(){
 async function handleSaveProgram(){
   PROGRAM = collectProgramFromSettings();
   if(!PROGRAM.C) PROGRAM.C = [];
+  if(!PROGRAM.D) PROGRAM.D = [];
   await saveProgram();
   renderSettings();
   showToast('項目已儲存');
   if(!PROGRAM[currentDay] || !PROGRAM[currentDay].length){
-    currentDay = PROGRAM.A.length ? 'A' : PROGRAM.B.length ? 'B' : 'C';
+    currentDay = PROGRAM.A.length ? 'A' : PROGRAM.B.length ? 'B' : PROGRAM.C.length ? 'C' : 'D';
   }
   renderDayBar();
   renderExercises();
@@ -1292,7 +1312,7 @@ function switchSection(sec){
 // ══ Week Plan ════════════════════════════════════════════════
 let weekPlan = {1:null,2:null,3:null,4:null,5:null,6:null,0:null};
 const DAY_LABELS = ['日','一','二','三','四','五','六'];
-const CYCLE = [null,'A','B','C'];
+const CYCLE = [null,'A','B','C','D'];
 
 async function loadWeekPlan(){
   try{
@@ -1369,7 +1389,7 @@ function renderTemplates(){
   }
   // Group by day
   const days = ['A','B','C'];
-  const dayLabels = {A:'Day A',B:'Day B',C:'Day C（有氧）'};
+  const dayLabels = {A:'Day A',B:'Day B',C:'Day C',D:'Day D（有氧）'};
   days.forEach(day=>{
     const dayTpls = templates.filter(t=>t.day===day);
     if(dayTpls.length===0) return;
@@ -1384,7 +1404,7 @@ function renderTemplates(){
         <div class="tpl-name">${tpl.name}</div>
         <div class="tpl-actions">
           <select class="tpl-apply-day" style="background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:5px 6px;font-size:11px;">
-            <option value="A">→ A</option><option value="B">→ B</option><option value="C">→ C</option>
+            <option value="A">→ A</option><option value="B">→ B</option><option value="C">→ C</option><option value="D">→ D</option>
           </select>
           <button class="tpl-btn load">套用</button>
           <button class="tpl-btn del">刪除</button>
