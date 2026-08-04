@@ -1388,7 +1388,7 @@ function renderTemplates(){
     return;
   }
   // Group by day
-  const days = ['A','B','C'];
+  const days = ['A','B','C','D'];
   const dayLabels = {A:'Day A',B:'Day B',C:'Day C',D:'Day D（有氧）'};
   days.forEach(day=>{
     const dayTpls = templates.filter(t=>t.day===day);
@@ -1875,4 +1875,3 @@ init();
 
 </body>
 </html>
-
